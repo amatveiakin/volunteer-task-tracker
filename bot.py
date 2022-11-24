@@ -1,10 +1,28 @@
 import logging
+from threading import Lock
 
+import sqlite3
 from telegram import Update, User, Chat, BotCommand, InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+db_lock = Lock()
+db_con = sqlite3.connect(
+    "voluteer_tasks.db",
+    isolation_level=None,  # autocommit mode (a.k.a. implicit transactions)
+    check_same_thread=False,
+)
+db_cur = db_con.cursor()
+db_cur.execute("""CREATE TABLE IF NOT EXISTS tasks(
+    kind TEXT,
+    text TEXT,
+    status TEXT,
+    creator_id INTEGER,
+    assignee_id INTEGER
+)""")
 
 class Task:
     SHELTER = "SHELTER"
@@ -12,6 +30,12 @@ class Task:
     VOLUNTEER = "VOLUNTEER"
     QUESTION = "QUESTION"
     OTHER = "OTHER"
+
+class TaskStatus:
+    UNASSIGNED = "UNASSIGNED"
+    ASSIGNED = "ASSIGNED"
+    # TODO: Do we need the distinction between closed statuses? Done / Abandoned / WAI...
+    CLOSED = "CLOSED"
 
 class Action:
     CANCEL = "CANCEL"
@@ -143,8 +167,16 @@ def on_button_tap(update: Update, context: CallbackContext) -> None:
         case [Action.CREATE]:
             task_kind = new_task_states[user.id].kind
             task_text = new_task_states[user.id].text
-            # TODO: Save the task
-            print(f"{task_kind} task created:\n{task_text}")
+            # Write operations should be serialized by the user to avoid data corruption.
+            # (from https://docs.python.org/3/library/sqlite3.html#sqlite3.connect)
+            with db_lock:
+                # Always use placeholders instead of string formatting to bind Python values
+                # to SQL statements, to avoid SQL injection attacks.
+                # (from https://docs.python.org/3/library/sqlite3.html#tutorial)
+                db_cur.execute(
+                    "INSERT INTO tasks(kind, text, status, creator_id) VALUES(?, ?, ?, ?)",
+                    (task_kind, task_text, TaskStatus.UNASSIGNED, user.id)
+                )
             new_task_states.pop(user.id, None)
             message_text = NEW_TASK_CREATED_TEMPLATE.format(
                 header=NEW_TASK_CREATED_TEXT[task_kind],
