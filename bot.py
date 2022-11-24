@@ -1,6 +1,6 @@
 import logging
 
-from telegram import Update, User, Chat, InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
+from telegram import Update, User, Chat, BotCommand, InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 
 
@@ -189,7 +189,7 @@ def main() -> None:
     dispatcher = updater.dispatcher
 
     # Register commands
-    # TODO: Add a button for this
+    # TODO: Support "/help" command as per https://core.telegram.org/bots/features#global-commands
     dispatcher.add_handler(CommandHandler("newtask", new_task))
 
     # Register handler for inline buttons
@@ -197,6 +197,14 @@ def main() -> None:
 
     # Register handler for text input (except commands)
     dispatcher.add_handler(MessageHandler(~Filters.command, on_message))
+
+    # TODO: Smoother solution:
+    #   - A "New task" button
+    #   - Permanent "New task" dialog
+    #   - Separate command for each task type
+    dispatcher.bot.set_my_commands([
+        BotCommand("newtask", "Create new task")
+    ])
 
     # Start the Bot
     updater.start_polling()
