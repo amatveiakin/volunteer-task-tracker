@@ -1,33 +1,24 @@
+from functools import partial
 import logging
 from threading import Lock
+from typing import TypeAlias
 
 import sqlite3
 from telegram import Update, User, Chat, BotCommand, InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-db_lock = Lock()
-db_con = sqlite3.connect(
-    "voluteer_tasks.db",
-    isolation_level=None,  # autocommit mode (a.k.a. implicit transactions)
-    check_same_thread=False,
-)
-db_cur = db_con.cursor()
-# TODO: Make hashtags searchable
-# TODO: Full status change history (instead of assigned_ts / closed_ts)
-db_cur.execute("""CREATE TABLE IF NOT EXISTS tasks(
-    kind TEXT,
-    text TEXT,
-    status TEXT,
-    creator_id INTEGER,
-    assignee_id INTEGER,
-    created_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    assigned_ts TIMESTAMP,
-    closed_ts TIMESTAMP
-)""")
+class DB:
+    def __init__(self):
+        self.lock = Lock()  # writes should be protected
+        self.con = sqlite3.connect(
+            "voluteer_tasks.db",
+            isolation_level=None,  # autocommit mode (a.k.a. implicit transactions)
+            check_same_thread=False,
+        )
+        self.cur = self.con.cursor()
 
 class Task:
     SHELTER = "SHELTER"
@@ -55,12 +46,7 @@ class NewTaskState:
         self.kind: str|None = None
         self.text: str|None = None
 
-# The kind of the task this user is currently creating.
-# TODO:
-#   - save to persistent storage,
-#   - or find a way to extract this info from chat (akin to callback_data),
-#   - or at least add a way to monitor the dict, so that we can only restart the bot when it's empty.
-new_task_states: dict[int, NewTaskState] = {}
+NewTaskStateMap: TypeAlias = dict[int, NewTaskState]
 
 NEW_TASK_INPUT_TEXT = {}
 NEW_TASK_CONFIRMATION_TEXT = {}
@@ -141,7 +127,9 @@ def new_task(update: Update, context: CallbackContext) -> None:
     )
 
 
-def on_button_tap(update: Update, context: CallbackContext) -> None:
+def on_button_tap(
+        update: Update, context: CallbackContext,
+        db: DB, new_task_states: NewTaskStateMap) -> None:
     """
     This handler processes all inline buttons
     """
@@ -174,11 +162,11 @@ def on_button_tap(update: Update, context: CallbackContext) -> None:
             task_text = new_task_states[user.id].text
             # Write operations should be serialized by the user to avoid data corruption.
             # (from https://docs.python.org/3/library/sqlite3.html#sqlite3.connect)
-            with db_lock:
+            with db.lock:
                 # Always use placeholders instead of string formatting to bind Python values
                 # to SQL statements, to avoid SQL injection attacks.
                 # (from https://docs.python.org/3/library/sqlite3.html#tutorial)
-                db_cur.execute(
+                db.cur.execute(
                     "INSERT INTO tasks(kind, text, status, creator_id) VALUES(?, ?, ?, ?)",
                     (task_kind, task_text, TaskStatus.UNASSIGNED, user.id)
                 )
@@ -193,7 +181,9 @@ def on_button_tap(update: Update, context: CallbackContext) -> None:
                 ParseMode.HTML,
             )
 
-def on_message(update: Update, context: CallbackContext) -> None:
+def on_message(
+        update: Update, context: CallbackContext,
+        new_task_states: NewTaskStateMap) -> None:
     user = update.message.from_user
     task_kind = new_task_states[user.id].kind
     if task_kind is None:
@@ -217,6 +207,29 @@ def on_message(update: Update, context: CallbackContext) -> None:
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO)
+
+    db = DB()
+    # TODO: Make hashtags searchable
+    # TODO: Full status change history (instead of assigned_ts / closed_ts)
+    db.cur.execute("""CREATE TABLE IF NOT EXISTS tasks(
+        kind TEXT,
+        text TEXT,
+        status TEXT,
+        creator_id INTEGER,
+        assignee_id INTEGER,
+        created_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        assigned_ts TIMESTAMP,
+        closed_ts TIMESTAMP
+    )""")
+
+    # The kind of the task this user is currently creating.
+    # TODO:
+    #   - save to persistent storage,
+    #   - or find a way to extract this info from chat (akin to callback_data),
+    #   - or at least add a way to monitor the dict, so that we can only restart the bot when it's empty.
+    new_task_states: NewTaskStateMap = {}
+
     with open('volunteer_request_bot.key') as f:
         token = f.read().strip()
     updater = Updater(token)
@@ -230,10 +243,12 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("newtask", new_task))
 
     # Register handler for inline buttons
-    dispatcher.add_handler(CallbackQueryHandler(on_button_tap))
+    dispatcher.add_handler(CallbackQueryHandler(
+        partial(on_button_tap, db=db, new_task_states=new_task_states)))
 
     # Register handler for text input (except commands)
-    dispatcher.add_handler(MessageHandler(~Filters.command, on_message))
+    dispatcher.add_handler(MessageHandler(~Filters.command,
+        partial(on_message, new_task_states=new_task_states)))
 
     # TODO: Smoother solution:
     #   - A "New task" button
