@@ -217,7 +217,7 @@ def on_message(update: Update, context: CallbackContext) -> None:
 
 
 def main() -> None:
-    with open('api_key') as f:
+    with open('volunteer_request_bot.key') as f:
         token = f.read().strip()
     updater = Updater(token)
 
