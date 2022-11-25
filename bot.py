@@ -16,12 +16,17 @@ db_con = sqlite3.connect(
     check_same_thread=False,
 )
 db_cur = db_con.cursor()
+# TODO: Make hashtags searchable
+# TODO: Full status change history (instead of assigned_ts / closed_ts)
 db_cur.execute("""CREATE TABLE IF NOT EXISTS tasks(
     kind TEXT,
     text TEXT,
     status TEXT,
     creator_id INTEGER,
-    assignee_id INTEGER
+    assignee_id INTEGER,
+    created_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    assigned_ts TIMESTAMP,
+    closed_ts TIMESTAMP
 )""")
 
 class Task:
