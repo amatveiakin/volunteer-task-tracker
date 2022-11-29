@@ -34,20 +34,31 @@ Choose the type of the task."""
 CANCELLED_TEXT = "Cancelled."
 
 NEW_TASK_INPUT_TEXT[Task.SHELTER] = """<b>⛺️ Looking for shelter</b>\n
-Enter you request below. Make sure to include #LocationHashtag."""
+Enter you request below. Make sure to include #LocationHashtag and other relevant #Hashtags."""
 NEW_TASK_CONFIRMATION_TEXT[Task.SHELTER] = """<b>⛺️ You are about to submit the following shelter request:</b>"""
 NEW_TASK_CREATED_TEXT[Task.SHELTER] = """<b>⛺️ Shelter request created:</b>"""
 
 NEW_TASK_INPUT_TEXT[Task.TRANSPORT] = """<b>🚗 Looking for transport</b>\n
-Enter you request below. Make sure to include #LocationHashtag for the source and destination locations."""
+Enter you request below. Make sure to include #LocationHashtag for the source and destination locations and other relevant #Hashtags."""
 NEW_TASK_CONFIRMATION_TEXT[Task.TRANSPORT] = """<b>🚗 You are about to submit the following transport request:</b>"""
 NEW_TASK_CREATED_TEXT[Task.TRANSPORT] = """<b>🚗 Transport request created:</b>"""
 
-# # TODO: Add info wiki links
-# NEW_TASK_INPUT_TEXT[Task.QUESTION] = """<b>❔ Ask a question</b>\n
-# Make sure to <i>check the wiki first!</i>
-# If you cannot find an answer elsewhere, please enter the question below"""
-# NEW_TASK_CONFIRMATION_TEXT[Task.QUESTION] = """You are about to submit the following question:"""
+NEW_TASK_INPUT_TEXT[Task.VOLUNTEER] = """<b>🙋 Looking for a volunteer</b>\n
+Enter you request below. Make sure to include #LocationHashtag and other relevant #Hashtags."""
+NEW_TASK_CONFIRMATION_TEXT[Task.VOLUNTEER] = """<b>🙋 You are about to submit the following volunteer request:</b>"""
+NEW_TASK_CREATED_TEXT[Task.VOLUNTEER] = """<b>🙋 Volunteer request created:</b>"""
+
+# TODO: Add info wiki links
+NEW_TASK_INPUT_TEXT[Task.QUESTION] = """<b>❔ Ask a question</b>\n
+<i>Check the wiki first!</i>
+If you cannot find an answer elsewhere, please enter the question below. Make sure to include relevant #Hashtags."""
+NEW_TASK_CONFIRMATION_TEXT[Task.QUESTION] = """<b>❔ You are about to submit the following question:</b>"""
+NEW_TASK_CREATED_TEXT[Task.QUESTION] = """<b>❔ Question submitted:</b>"""
+
+NEW_TASK_INPUT_TEXT[Task.OTHER] = """<b>Custom request</b>\n
+Enter you request below. Make sure to include relevant #Hashtags."""
+NEW_TASK_CONFIRMATION_TEXT[Task.OTHER] = """<b>You are about to submit the following custom request:</b>"""
+NEW_TASK_CREATED_TEXT[Task.OTHER] = """<b>Custom request created:</b>"""
 
 # TODO: Privacy policy
 NEW_TASK_CONFIRMATION_TEMPLATE = """{header}\n
@@ -71,12 +82,11 @@ NEW_TASK_MARKUP = InlineKeyboardMarkup([
         InlineKeyboardButton(NEW_SHELTER_BUTTON, callback_data=action_select(Task.SHELTER)),
         InlineKeyboardButton(NEW_TRANSPORT_BUTTON, callback_data=action_select(Task.TRANSPORT)),
     ],
-    # TODO: Implement these task types
-    # [
-    #     InlineKeyboardButton(NEW_VOLUNTEER_BUTTON, callback_data=action_select(Task.VOLUNTEER)),
-    #     InlineKeyboardButton(NEW_QUESTION_BUTTON, callback_data=action_select(Task.QUESTION)),
-    #     InlineKeyboardButton(NEW_OTHER_BUTTON, callback_data=action_select(Task.OTHER)),
-    # ],
+    [
+        InlineKeyboardButton(NEW_VOLUNTEER_BUTTON, callback_data=action_select(Task.VOLUNTEER)),
+        InlineKeyboardButton(NEW_QUESTION_BUTTON, callback_data=action_select(Task.QUESTION)),
+        InlineKeyboardButton(NEW_OTHER_BUTTON, callback_data=action_select(Task.OTHER)),
+    ],
     [
         InlineKeyboardButton(CANCEL_BUTTON, callback_data=Action.CANCEL),
     ],
