@@ -1,37 +1,14 @@
 from functools import partial
 import logging
-from threading import Lock
 from typing import TypeAlias
 
-import sqlite3
 from telegram import Update, User, Chat, BotCommand, InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 
+from volunteer_common import DB, Task, TaskStatus
+
 
 logger = logging.getLogger(__name__)
-
-class DB:
-    def __init__(self):
-        self.lock = Lock()  # writes should be protected
-        self.con = sqlite3.connect(
-            "voluteer_tasks.db",
-            isolation_level=None,  # autocommit mode (a.k.a. implicit transactions)
-            check_same_thread=False,
-        )
-        self.cur = self.con.cursor()
-
-class Task:
-    SHELTER = "SHELTER"
-    TRANSPORT = "TRANSPORT"
-    VOLUNTEER = "VOLUNTEER"
-    QUESTION = "QUESTION"
-    OTHER = "OTHER"
-
-class TaskStatus:
-    UNASSIGNED = "UNASSIGNED"
-    ASSIGNED = "ASSIGNED"
-    # TODO: Do we need the distinction between closed statuses? Done / Abandoned / WAI...
-    CLOSED = "CLOSED"
 
 class Action:
     CANCEL = "CANCEL"
@@ -126,14 +103,9 @@ def new_task(update: Update, context: CallbackContext) -> None:
         reply_markup=NEW_TASK_MARKUP,
     )
 
-
 def on_button_tap(
         update: Update, context: CallbackContext,
         db: DB, new_task_states: NewTaskStateMap) -> None:
-    """
-    This handler processes all inline buttons
-    """
-
     data = update.callback_query.data
     update.callback_query.answer()  # stop the client-side loading animation
     user = update.effective_user  # TODO: Can the user be `None`?
@@ -228,6 +200,8 @@ def main() -> None:
     #   - save to persistent storage,
     #   - or find a way to extract this info from chat (akin to callback_data),
     #   - or at least add a way to monitor the dict, so that we can only restart the bot when it's empty.
+    #   - consider https://github.com/python-telegram-bot/python-telegram-bot/wiki/Storing-bot,-user-and-chat-related-data
+    #     plus https://github.com/python-telegram-bot/python-telegram-bot/wiki/Making-your-bot-persistent
     new_task_states: NewTaskStateMap = {}
 
     with open('volunteer_request_bot.key') as f:
